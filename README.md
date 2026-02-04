@@ -76,6 +76,10 @@ Use `--ai` flag to understand complex descriptions:
 # Set your API key (one time)
 export KIMI_API_KEY="your-api-key"
 
+# Optional: Configure API endpoint if needed
+export KIMI_API_URL="https://api.moonshot.cn/v1/chat/completions"
+export KIMI_MODEL="kimi-k2-0905-preview"
+
 # Complex descriptions work!
 ./cad-3d-cli --ai --prompt "a coffee cup with 80mm diameter and 100mm height" --output cup.stl
 ./cad-3d-cli --ai --prompt "一个带盖子的水杯，直径60mm，高80mm" --output cup.stl
@@ -88,6 +92,8 @@ The AI understands:
 - **Shapes**: round, square, cylindrical, L-shaped
 - **Dimensions**: "80mm diameter", "height 100mm"
 - **Features**: "with lid", "hollow", "thick walls"
+
+> **Note:** AI mode requires a valid API key. If AI parsing fails, it will fall back to keyword mode automatically.
 
 #### Basic Keyword Mode (No AI)
 

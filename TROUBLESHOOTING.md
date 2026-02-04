@@ -214,6 +214,42 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ---
 
+### 11. "AI parsing failed" Error
+
+**What you see:**
+```
+AI parsing failed: HTTP Error 401: Unauthorized
+```
+
+**What it means:** The API key is missing, invalid, or the API endpoint is incorrect.
+
+**Solutions:**
+
+**Option A - Set API key:**
+```bash
+export KIMI_API_KEY="your-api-key-here"
+```
+
+**Option B - Use command line flag:**
+```bash
+./cad-3d-cli --ai --api-key "your-api-key" --prompt "a cup"
+```
+
+**Option C - Configure API endpoint (if needed):**
+```bash
+# If using a different API provider
+export KIMI_API_URL="https://api.your-provider.com/v1/chat/completions"
+export KIMI_MODEL="your-model-name"
+```
+
+**Option D - Skip AI and use keyword mode:**
+```bash
+# Remove --ai flag to use simple keyword matching
+./cad-3d-cli --prompt "a cylinder" --diameter 30 --height 40 --output cyl.stl
+```
+
+---
+
 ## Still Having Issues?
 
 1. **Check your setup:**
