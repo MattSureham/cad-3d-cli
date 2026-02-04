@@ -90,7 +90,7 @@ class CAD3DCLI:
         
         self.doc = FreeCAD.newDocument("Generated")
         
-        # Parse prompt for basic shapes
+        # Parse prompt for basic shapes (supports English and Chinese)
         prompt_lower = prompt.lower()
         
         # Extract dimensions if provided
@@ -101,26 +101,38 @@ class CAD3DCLI:
         
         shape = None
         
-        if 'box' in prompt_lower or 'cube' in prompt_lower:
+        # Box / Cube - English: box, cube | Chinese: 盒子, 立方体, 方块, 长方体
+        if any(kw in prompt_lower for kw in ['box', 'cube', '盒子', '立方体', '方块', '长方体']):
             shape = Part.makeBox(width, depth, height)
-        elif 'cylinder' in prompt_lower:
+        
+        # Cylinder - English: cylinder | Chinese: 圆柱, 圆柱体, 圆筒
+        elif any(kw in prompt_lower for kw in ['cylinder', '圆柱', '圆柱体', '圆筒']):
             shape = Part.makeCylinder(diameter/2, height)
-        elif 'sphere' in prompt_lower:
+        
+        # Sphere - English: sphere, ball | Chinese: 球, 球体, 圆球
+        elif any(kw in prompt_lower for kw in ['sphere', 'ball', '球', '球体', '圆球']):
             shape = Part.makeSphere(diameter/2)
-        elif 'cone' in prompt_lower:
+        
+        # Cone - English: cone | Chinese: 圆锥, 圆锥体, 锥体
+        elif any(kw in prompt_lower for kw in ['cone', '圆锥', '圆锥体', '锥体']):
             radius1 = params.get('radius1', diameter/2)
             radius2 = params.get('radius2', diameter/4)
             shape = Part.makeCone(radius1, radius2, height)
-        elif 'torus' in prompt_lower:
+        
+        # Torus - English: torus, donut | Chinese: 圆环, 圆环体, 甜甜圈
+        elif any(kw in prompt_lower for kw in ['torus', 'donut', '圆环', '圆环体', '甜甜圈']):
             radius1 = params.get('major_radius', 30)
             radius2 = params.get('minor_radius', 10)
             shape = Part.makeTorus(radius1, radius2)
-        elif 'tube' in prompt_lower or 'pipe' in prompt_lower:
+        
+        # Tube / Pipe - English: tube, pipe | Chinese: 管, 管子, 管道, 圆管, 空心管, 空心
+        elif any(kw in prompt_lower for kw in ['tube', 'pipe', '管', '管子', '管道', '圆管', '空心管', '空心圆柱']):
             outer_radius = diameter / 2
             inner_radius = outer_radius - params.get('wall_thickness', 3)
             outer_cyl = Part.makeCylinder(outer_radius, height)
             inner_cyl = Part.makeCylinder(inner_radius, height)
             shape = outer_cyl.cut(inner_cyl)
+        
         else:
             # Default to box
             shape = Part.makeBox(width, depth, height)

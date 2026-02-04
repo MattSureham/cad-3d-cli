@@ -13,6 +13,7 @@ Transform text descriptions, images, or existing 3D files into printable models.
 | Feature | Description | Example |
 |---------|-------------|---------|
 | **📝 Text to 3D** | Describe what you want, get a 3D model | `"a box 50x30x20mm"` → STL file |
+| **🇨🇳 Chinese Support** | Use Chinese prompts | `"一个盒子"`, `"圆柱体"` |
 | **🖼️ Image to 3D** | Convert images to heightmaps | `photo.jpg` → 3D relief |
 | **🔄 Convert formats** | Switch between STL, STEP, DXF, FreeCAD | `model.stl` → `model.step` |
 | **🛠️ Modify models** | Scale, rotate, move existing models | Scale by 2x, rotate 45° |
@@ -89,6 +90,30 @@ Describe what you want using simple shapes:
 - `cone` → Cone
 - `torus` → Donut shape
 - `tube`, `pipe` → Hollow cylinder
+
+#### 🇨🇳 Chinese Language Support
+
+You can also use Chinese prompts:
+
+```bash
+# 中文也可以！
+./cad-3d-cli --prompt "一个盒子" --output box.stl
+./cad-3d-cli --prompt "圆柱体" --diameter 30 --height 40 --output cylinder.stl
+./cad-3d-cli --prompt "球体" --diameter 50 --output sphere.stl
+./cad-3d-cli --prompt "圆锥" --output cone.stl
+./cad-3d-cli --prompt "圆环" --output torus.stl
+./cad-3d-cli --prompt "空心管" --diameter 40 --height 60 --wall-thickness 2 --output tube.stl
+```
+
+**支持的中文关键词：**
+| English | 中文 | Shape |
+|---------|------|-------|
+| box, cube | 盒子, 立方体, 方块, 长方体 | 长方体 |
+| cylinder | 圆柱, 圆柱体, 圆筒 | 圆柱体 |
+| sphere, ball | 球, 球体, 圆球 | 球体 |
+| cone | 圆锥, 圆锥体, 锥体 | 圆锥体 |
+| torus, donut | 圆环, 圆环体, 甜甜圈 | 圆环体 |
+| tube, pipe | 管, 管子, 管道, 圆管, 空心管 | 空心圆柱 |
 
 ### 2. Convert File Formats
 
