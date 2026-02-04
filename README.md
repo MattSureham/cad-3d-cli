@@ -68,32 +68,41 @@ ls -lh mybox.stl
 
 ### 1. Generate from Text (Easiest)
 
-#### 🧠 AI-Powered Generation (Recommended)
+#### 📏 Smart Dimension Extraction (Auto-detect)
 
-Use `--ai` flag to understand complex descriptions:
+**No API key needed!** The tool automatically extracts dimensions from your description:
+
+```bash
+# These all work without AI:
+./cad-3d-cli --prompt "一个50x30x20的盒子" --output box.stl
+./cad-3d-cli --prompt "直径80高100的圆柱" --output cylinder.stl
+./cad-3d-cli --prompt "box width 100 height 60 depth 40" --output box.stl
+./cad-3d-cli --prompt "a cylinder with diameter 50 and height 80" --output cyl.stl
+```
+
+**Supported formats:**
+| Format | Example | Description |
+|--------|---------|-------------|
+| `50x30x20` | `50x30x20` or `50*30*20` or `50,30,20` | Width x Depth x Height |
+| Labeled | `width 50 height 30` | Explicit dimension labels |
+| 中文格式 | `宽50高30深20` | Chinese labels |
+| 2D | `80x100` | Diameter x Height (for cylinders) |
+| Mixed | `直径80高100` | Chinese + numbers |
+
+#### 🧠 AI-Powered Generation (Optional)
+
+For even smarter understanding, use `--ai` flag with an API key:
 
 ```bash
 # Set your API key (one time)
 export KIMI_API_KEY="your-api-key"
 
-# Optional: Configure API endpoint if needed
-export KIMI_API_URL="https://api.moonshot.cn/v1/chat/completions"
-export KIMI_MODEL="kimi-k2-0905-preview"
-
 # Complex descriptions work!
-./cad-3d-cli --ai --prompt "a coffee cup with 80mm diameter and 100mm height" --output cup.stl
-./cad-3d-cli --ai --prompt "一个带盖子的水杯，直径60mm，高80mm" --output cup.stl
-./cad-3d-cli --ai --prompt "phone stand, L-shaped, base 70x100mm" --output stand.stl
-./cad-3d-cli --ai --prompt "一个笔筒，圆柱形，直径50mm，高120mm" --output pen_holder.stl
+./cad-3d-cli --ai --prompt "a coffee cup with handle, 80mm diameter" --output cup.stl
+./cad-3d-cli --ai --prompt "一个带盖子的水杯" --output cup.stl
 ```
 
-The AI understands:
-- **Objects**: cup, bowl, container, stand, holder, etc.
-- **Shapes**: round, square, cylindrical, L-shaped
-- **Dimensions**: "80mm diameter", "height 100mm"
-- **Features**: "with lid", "hollow", "thick walls"
-
-> **Note:** AI mode requires a valid API key. If AI parsing fails, it will fall back to keyword mode automatically.
+> **Note:** AI mode is optional. Without `--ai`, the tool still extracts dimensions automatically!
 
 #### Basic Keyword Mode (No AI)
 

@@ -43,6 +43,9 @@ try:
 except ImportError:
     AI_AVAILABLE = False
 
+# Import for dimension extraction
+import re
+
 
 class CAD3DCLI:
     """Main CLI class for 3D modeling operations"""
@@ -57,7 +60,109 @@ class CAD3DCLI:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.doc = None
         self.api_key = api_key or os.environ.get('KIMI_API_KEY')
+    
+    def extract_dimensions(self, prompt: str) -> Dict[str, Optional[float]]:
+        """Extract dimensions from text description using regex patterns.
         
+        Supports formats like:
+        - "50x30x20" or "50*30*20" or "50,30,20"
+        - "50mm x 30mm x 20mm"
+        - "直径80高100" or "diameter 80 height 100"
+        - "宽50深30高20" or "width 50 depth 30 height 20"
+        - "50 by 30 by 20"
+        
+        Returns dict with keys: width, height, depth, diameter
+        """
+        dimensions = {
+            'width': None,
+            'height': None,
+            'depth': None,
+            'diameter': None
+        }
+        
+        # Pattern 1: 50x30x20 or 50*30*20 or 50,30,20 (most common)
+        # Matches: number (separator) number (separator) number
+        pattern_3d = r'(\d+\.?\d*)\s*[xX*×,]\s*(\d+\.?\d*)\s*[xX*×,]\s*(\d+\.?\d*)\s*(?:mm)?'
+        match = re.search(pattern_3d, prompt)
+        if match:
+            dims = [float(match.group(i)) for i in range(1, 4)]
+            # Try to determine which is which based on context
+            if any(kw in prompt.lower() for kw in ['diameter', 'diam', '直径', ' Φ', ' phi', 'φ']):
+                # For cylinders: diameter x height (x wall_thickness optionally)
+                dimensions['diameter'] = dims[0]
+                dimensions['height'] = dims[1]
+                # dims[2] could be wall thickness if hollow
+            else:
+                # For boxes: width x depth x height
+                dimensions['width'] = dims[0]
+                dimensions['depth'] = dims[1]
+                dimensions['height'] = dims[2]
+            return dimensions
+        
+        # Pattern 2: Explicit labels - width/height/depth
+        # English: width 50, height 30, depth 20
+        patterns_en = {
+            'width': r'width\s*(\d+\.?\d*)',
+            'height': r'height\s*(\d+\.?\d*)',
+            'depth': r'depth\s*(\d+\.?\d*)',
+            'diameter': r'diameter\s*(\d+\.?\d*)',
+        }
+        
+        for dim_name, pattern in patterns_en.items():
+            match = re.search(pattern, prompt, re.IGNORECASE)
+            if match:
+                dimensions[dim_name] = float(match.group(1))
+        
+        # Chinese patterns - separate to handle Chinese characters correctly
+        patterns_cn = {
+            'width': r'(?:宽|长度|长)\s*(\d+\.?\d*)',
+            'height': r'(?:高|高度)\s*(\d+\.?\d*)',
+            'depth': r'(?:深|厚度|厚)\s*(\d+\.?\d*)',
+            'diameter': r'(?:直径|Φ|phi|φ)\s*(\d+\.?\d*)',
+        }
+        
+        for dim_name, pattern in patterns_cn.items():
+            if dimensions[dim_name] is None:  # Only if not already found
+                match = re.search(pattern, prompt)
+                if match:
+                    dimensions[dim_name] = float(match.group(1))
+        
+        # Pattern 3: "50 by 30 by 20" or "50乘30乘20"
+        pattern_by = r'(\d+\.?\d*)\s*(?:by|乘|\*)\s*(\d+\.?\d*)\s*(?:by|乘|\*)\s*(\d+\.?\d*)'
+        match = re.search(pattern_by, prompt, re.IGNORECASE)
+        if match and not any(dimensions.values()):  # Only if no explicit labels found
+            dims = [float(match.group(i)) for i in range(1, 4)]
+            dimensions['width'] = dims[0]
+            dimensions['depth'] = dims[1]
+            dimensions['height'] = dims[2]
+        
+        # Pattern 4: Single dimension for simple shapes
+        # "直径50" or "diameter 50" or "50mm diameter"
+        if not dimensions['diameter']:
+            pattern_single_diam = r'(?:^|\s)(\d+\.?\d*)\s*(?:mm)?\s*(?:diameter|diam|直径)'
+            match = re.search(pattern_single_diam, prompt, re.IGNORECASE)
+            if match:
+                dimensions['diameter'] = float(match.group(1))
+            else:
+                pattern_single_diam2 = r'(?:diameter|diam|直径)\s*(\d+\.?\d*)'
+                match = re.search(pattern_single_diam2, prompt, re.IGNORECASE)
+                if match:
+                    dimensions['diameter'] = float(match.group(1))
+        
+        # Pattern 5: Two dimensions (diameter x height for cylinders)
+        pattern_2d = r'(\d+\.?\d*)\s*[xX*×,]\s*(\d+\.?\d*)\s*(?:mm)?'
+        match = re.search(pattern_2d, prompt)
+        if match and not any(dimensions.values()):
+            dims = [float(match.group(1)), float(match.group(2))]
+            if any(kw in prompt.lower() for kw in ['cylinder', 'cyl', '圆柱', '圆筒', '管', 'tube']):
+                dimensions['diameter'] = dims[0]
+                dimensions['height'] = dims[1]
+            else:
+                dimensions['width'] = dims[0]
+                dimensions['height'] = dims[1]
+        
+        return dimensions
+    
     def parse_with_ai(self, prompt: str) -> Dict[str, Any]:
         """Use AI to parse complex descriptions into structured parameters"""
         if not AI_AVAILABLE:
@@ -180,18 +285,33 @@ Rules:
         
         self.doc = FreeCAD.newDocument("Generated")
         
-        # If AI mode enabled, use AI to parse the prompt
+        # Extract dimensions from prompt text first (works in both modes)
+        print("📏 Extracting dimensions from text...")
+        extracted_dims = self.extract_dimensions(prompt)
+        print(f"Extracted: {extracted_dims}")
+        
+        # Merge extracted dimensions with provided params (provided params take precedence)
+        width = params.get('width') or extracted_dims.get('width') or 50
+        height = params.get('height') or extracted_dims.get('height') or 30
+        depth = params.get('depth') or extracted_dims.get('depth') or 20
+        diameter = params.get('diameter') or extracted_dims.get('diameter') or 25
+        
+        # If AI mode enabled, use AI to enhance parsing
         if use_ai and self.api_key:
             print("🧠 Using AI to parse your description...")
             ai_params = self.parse_with_ai(prompt)
             print(f"AI parsed: {ai_params}")
             
-            # Extract dimensions from AI response
-            dims = ai_params.get('dimensions', {})
-            width = dims.get('width') or params.get('width', 50)
-            height = dims.get('height') or params.get('height', 30)
-            depth = dims.get('depth') or params.get('depth', 20)
-            diameter = dims.get('diameter') or params.get('diameter', 25)
+            # Override with AI dimensions if they exist
+            ai_dims = ai_params.get('dimensions', {})
+            if ai_dims.get('width'):
+                width = ai_dims['width']
+            if ai_dims.get('height'):
+                height = ai_dims['height']
+            if ai_dims.get('depth'):
+                depth = ai_dims['depth']
+            if ai_dims.get('diameter'):
+                diameter = ai_dims['diameter']
             
             # Create params dict for shape creation
             shape_params = {
@@ -226,16 +346,23 @@ Rules:
                 
                 return self.doc
         
-        # Fallback to keyword-based parsing
+        # Use extracted dimensions for keyword-based parsing
         prompt_lower = prompt.lower()
         
-        # Extract dimensions if provided
-        width = params.get('width', 50)
-        height = params.get('height', 30)
-        depth = params.get('depth', 20)
-        diameter = params.get('diameter', 25)
+        # Remove dimension params from params dict to avoid duplication
+        shape_params = {
+            'width': width,
+            'height': height,
+            'depth': depth,
+            'diameter': diameter,
+            'radius1': params.get('radius1', diameter/2),
+            'radius2': params.get('radius2', diameter/4),
+            'major_radius': params.get('major_radius', 30),
+            'minor_radius': params.get('minor_radius', 10),
+            'wall_thickness': params.get('wall_thickness', 3)
+        }
         
-        shape = self._create_shape_from_keywords(prompt_lower, width, height, depth, diameter, **params)
+        shape = self._create_shape_from_keywords(prompt_lower, shape_params)
         
         if shape:
             obj = self.doc.addObject("Part::Feature", "Shape")
@@ -274,7 +401,7 @@ Rules:
         else:
             return Part.makeBox(width, depth, height)
     
-    def _create_shape_from_keywords(self, prompt_lower: str, **params):
+    def _create_shape_from_keywords(self, prompt_lower: str, params: dict):
         """Create shape based on keyword matching (supports English and Chinese)"""
         width = params.get('width', 50)
         height = params.get('height', 30)
