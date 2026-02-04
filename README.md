@@ -68,7 +68,30 @@ ls -lh mybox.stl
 
 ### 1. Generate from Text (Easiest)
 
-Describe what you want using simple shapes:
+#### 🧠 AI-Powered Generation (Recommended)
+
+Use `--ai` flag to understand complex descriptions:
+
+```bash
+# Set your API key (one time)
+export KIMI_API_KEY="your-api-key"
+
+# Complex descriptions work!
+./cad-3d-cli --ai --prompt "a coffee cup with 80mm diameter and 100mm height" --output cup.stl
+./cad-3d-cli --ai --prompt "一个带盖子的水杯，直径60mm，高80mm" --output cup.stl
+./cad-3d-cli --ai --prompt "phone stand, L-shaped, base 70x100mm" --output stand.stl
+./cad-3d-cli --ai --prompt "一个笔筒，圆柱形，直径50mm，高120mm" --output pen_holder.stl
+```
+
+The AI understands:
+- **Objects**: cup, bowl, container, stand, holder, etc.
+- **Shapes**: round, square, cylindrical, L-shaped
+- **Dimensions**: "80mm diameter", "height 100mm"
+- **Features**: "with lid", "hollow", "thick walls"
+
+#### Basic Keyword Mode (No AI)
+
+For simple shapes without AI:
 
 ```bash
 # Basic shapes - just describe it!
@@ -93,16 +116,16 @@ Describe what you want using simple shapes:
 
 #### 🇨🇳 Chinese Language Support
 
-You can also use Chinese prompts:
+You can also use Chinese prompts (works in both AI and keyword modes):
 
 ```bash
-# 中文也可以！
+# With AI
+./cad-3d-cli --ai --prompt "一个带盖子的水杯，直径60mm，高80mm" --output cup.stl
+
+# Without AI (keywords only)
 ./cad-3d-cli --prompt "一个盒子" --output box.stl
 ./cad-3d-cli --prompt "圆柱体" --diameter 30 --height 40 --output cylinder.stl
 ./cad-3d-cli --prompt "球体" --diameter 50 --output sphere.stl
-./cad-3d-cli --prompt "圆锥" --output cone.stl
-./cad-3d-cli --prompt "圆环" --output torus.stl
-./cad-3d-cli --prompt "空心管" --diameter 40 --height 60 --wall-thickness 2 --output tube.stl
 ```
 
 **支持的中文关键词：**
@@ -189,8 +212,16 @@ Output shows:
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--prompt "text"` | Create from description | `--prompt "a box"` |
+| `--ai` | Use AI to parse complex prompts | `--ai --prompt "a cup"` |
 | `--input file.stl` | Load existing file | `--input model.stl` |
 | `--image photo.jpg` | Convert image to 3D | `--image logo.png` |
+
+### AI Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--ai` | Enable AI parsing for complex descriptions | `--ai --prompt "a cup with handle"` |
+| `--api-key KEY` | Set API key (or use KIMI_API_KEY env var) | `--api-key sk-xxx` |
 
 ### Output Options
 

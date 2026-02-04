@@ -35,6 +35,14 @@ try:
 except ImportError:
     IMAGE_PROCESSING_AVAILABLE = False
 
+# Optional imports for AI parsing
+try:
+    import urllib.request
+    import urllib.error
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+
 
 class CAD3DCLI:
     """Main CLI class for 3D modeling operations"""
@@ -43,12 +51,94 @@ class CAD3DCLI:
     SUPPORTED_INPUTS = ['.stl', '.step', '.stp', '.dxf', '.fcstd', '.fcstd1', '.obj', '.ply']
     SUPPORTED_OUTPUTS = ['.stl', '.step', '.stp', '.dxf', '.fcstd', '.png']
     
-    def __init__(self, output_dir: Optional[str] = None):
+    def __init__(self, output_dir: Optional[str] = None, api_key: Optional[str] = None):
         self.output_dir = Path(output_dir or os.environ.get('CAD_OUTPUT_DIR', '~/clawd/cad-output'))
         self.output_dir = self.output_dir.expanduser().resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.doc = None
+        self.api_key = api_key or os.environ.get('KIMI_API_KEY')
         
+    def parse_with_ai(self, prompt: str) -> Dict[str, Any]:
+        """Use AI to parse complex descriptions into structured parameters"""
+        if not AI_AVAILABLE:
+            raise RuntimeError("urllib is required for AI parsing")
+        if not self.api_key:
+            raise RuntimeError("KIMI_API_KEY not set. Use --api-key or set environment variable.")
+        
+        system_prompt = """You are a CAD model parser. Extract structured information from user descriptions.
+
+Return ONLY a JSON object with this structure:
+{
+    "shape": "box|cylinder|sphere|cone|torus|tube|custom",
+    "description": "brief description of what to create",
+    "dimensions": {
+        "width": number or null,
+        "height": number or null,
+        "depth": number or null,
+        "diameter": number or null,
+        "radius": number or null
+    },
+    "features": ["list", "of", "features", "like", "hollow", "fillet", "chamfer"],
+    "wall_thickness": number or null,
+    "notes": "any additional notes for the designer"
+}
+
+Rules:
+- Extract all numeric dimensions mentioned (in mm)
+- If shape is unclear, use "custom"
+- For Chinese input, understand context and map to appropriate shapes
+- Common mappings:
+  - 杯子/水杯/容器 → cylinder with hollow
+  - 支架/支撑 → bracket (custom)
+  - 盒子/箱子 → box
+  - 管/管道 → tube
+  - 球/圆球 → sphere
+"""
+
+        try:
+            import ssl
+            
+            # Create SSL context that works on macOS
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # API endpoint - can be overridden via environment variable
+            api_endpoint = os.environ.get('KIMI_API_URL', 'https://api.moonshot.cn/v1/chat/completions')
+            model_name = os.environ.get('KIMI_MODEL', 'kimi-k2-0905-preview')
+            
+            req = urllib.request.Request(
+                api_endpoint,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}"
+                },
+                data=json.dumps({
+                    "model": model_name,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.3
+                }).encode('utf-8'),
+                method="POST"
+            )
+            
+            with urllib.request.urlopen(req, timeout=30, context=ssl_context) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                content = data['choices'][0]['message']['content']
+                return json.loads(content)
+                
+        except Exception as e:
+            print(f"AI parsing failed: {e}", file=sys.stderr)
+            return {
+                "shape": "box",
+                "description": prompt,
+                "dimensions": {},
+                "features": [],
+                "notes": "AI parsing failed, using defaults"
+            }
+    
     def create_document(self, name: str = "Model") -> Any:
         """Create a new FreeCAD document"""
         if not FREECAD_AVAILABLE:
@@ -83,14 +173,60 @@ class CAD3DCLI:
         
         return self.doc
     
-    def generate_from_prompt(self, prompt: str, **params) -> Any:
+    def generate_from_prompt(self, prompt: str, use_ai: bool = False, **params) -> Any:
         """Generate 3D model from text description"""
         if not FREECAD_AVAILABLE:
             raise RuntimeError("FreeCAD is required for model generation")
         
         self.doc = FreeCAD.newDocument("Generated")
         
-        # Parse prompt for basic shapes (supports English and Chinese)
+        # If AI mode enabled, use AI to parse the prompt
+        if use_ai and self.api_key:
+            print("🧠 Using AI to parse your description...")
+            ai_params = self.parse_with_ai(prompt)
+            print(f"AI parsed: {ai_params}")
+            
+            # Extract dimensions from AI response
+            dims = ai_params.get('dimensions', {})
+            width = dims.get('width') or params.get('width', 50)
+            height = dims.get('height') or params.get('height', 30)
+            depth = dims.get('depth') or params.get('depth', 20)
+            diameter = dims.get('diameter') or params.get('diameter', 25)
+            
+            # Create params dict for shape creation
+            shape_params = {
+                'width': width,
+                'height': height,
+                'depth': depth,
+                'diameter': diameter,
+                'radius1': params.get('radius1', diameter/2),
+                'radius2': params.get('radius2', diameter/4),
+                'major_radius': params.get('major_radius', 30),
+                'minor_radius': params.get('minor_radius', 10),
+                'wall_thickness': params.get('wall_thickness', 3)
+            }
+            
+            # Check for hollow feature
+            features = ai_params.get('features', [])
+            if 'hollow' in features and ai_params.get('wall_thickness'):
+                shape_params['wall_thickness'] = ai_params['wall_thickness']
+            
+            # Use AI-determined shape
+            shape_type = ai_params.get('shape', 'box')
+            shape = self._create_shape(shape_type, shape_params)
+            
+            if shape:
+                obj = self.doc.addObject("Part::Feature", "Shape")
+                obj.Shape = shape
+                self.doc.recompute()
+                
+                # Add AI notes as comment
+                if 'notes' in ai_params and ai_params['notes']:
+                    print(f"💡 AI Note: {ai_params['notes']}")
+                
+                return self.doc
+        
+        # Fallback to keyword-based parsing
         prompt_lower = prompt.lower()
         
         # Extract dimensions if provided
@@ -99,31 +235,75 @@ class CAD3DCLI:
         depth = params.get('depth', 20)
         diameter = params.get('diameter', 25)
         
-        shape = None
+        shape = self._create_shape_from_keywords(prompt_lower, width, height, depth, diameter, **params)
+        
+        if shape:
+            obj = self.doc.addObject("Part::Feature", "Shape")
+            obj.Shape = shape
+            self.doc.recompute()
+        
+        return self.doc
+    
+    def _create_shape(self, shape_type: str, params: dict):
+        """Create a shape based on type"""
+        width = params.get('width', 50)
+        height = params.get('height', 30)
+        depth = params.get('depth', 20)
+        diameter = params.get('diameter', 25)
+        
+        if shape_type == 'box':
+            return Part.makeBox(width, depth, height)
+        elif shape_type == 'cylinder':
+            return Part.makeCylinder(diameter/2, height)
+        elif shape_type == 'sphere':
+            return Part.makeSphere(diameter/2)
+        elif shape_type == 'cone':
+            radius1 = params.get('radius1', diameter/2)
+            radius2 = params.get('radius2', diameter/4)
+            return Part.makeCone(radius1, radius2, height)
+        elif shape_type == 'torus':
+            radius1 = params.get('major_radius', 30)
+            radius2 = params.get('minor_radius', 10)
+            return Part.makeTorus(radius1, radius2)
+        elif shape_type in ['tube', 'pipe']:
+            outer_radius = diameter / 2
+            inner_radius = outer_radius - params.get('wall_thickness', 3)
+            outer_cyl = Part.makeCylinder(outer_radius, height)
+            inner_cyl = Part.makeCylinder(inner_radius, height)
+            return outer_cyl.cut(inner_cyl)
+        else:
+            return Part.makeBox(width, depth, height)
+    
+    def _create_shape_from_keywords(self, prompt_lower: str, **params):
+        """Create shape based on keyword matching (supports English and Chinese)"""
+        width = params.get('width', 50)
+        height = params.get('height', 30)
+        depth = params.get('depth', 20)
+        diameter = params.get('diameter', 25)
         
         # Box / Cube - English: box, cube | Chinese: 盒子, 立方体, 方块, 长方体
         if any(kw in prompt_lower for kw in ['box', 'cube', '盒子', '立方体', '方块', '长方体']):
-            shape = Part.makeBox(width, depth, height)
+            return Part.makeBox(width, depth, height)
         
         # Cylinder - English: cylinder | Chinese: 圆柱, 圆柱体, 圆筒
         elif any(kw in prompt_lower for kw in ['cylinder', '圆柱', '圆柱体', '圆筒']):
-            shape = Part.makeCylinder(diameter/2, height)
+            return Part.makeCylinder(diameter/2, height)
         
         # Sphere - English: sphere, ball | Chinese: 球, 球体, 圆球
         elif any(kw in prompt_lower for kw in ['sphere', 'ball', '球', '球体', '圆球']):
-            shape = Part.makeSphere(diameter/2)
+            return Part.makeSphere(diameter/2)
         
         # Cone - English: cone | Chinese: 圆锥, 圆锥体, 锥体
         elif any(kw in prompt_lower for kw in ['cone', '圆锥', '圆锥体', '锥体']):
             radius1 = params.get('radius1', diameter/2)
             radius2 = params.get('radius2', diameter/4)
-            shape = Part.makeCone(radius1, radius2, height)
+            return Part.makeCone(radius1, radius2, height)
         
         # Torus - English: torus, donut | Chinese: 圆环, 圆环体, 甜甜圈
         elif any(kw in prompt_lower for kw in ['torus', 'donut', '圆环', '圆环体', '甜甜圈']):
             radius1 = params.get('major_radius', 30)
             radius2 = params.get('minor_radius', 10)
-            shape = Part.makeTorus(radius1, radius2)
+            return Part.makeTorus(radius1, radius2)
         
         # Tube / Pipe - English: tube, pipe | Chinese: 管, 管子, 管道, 圆管, 空心管, 空心
         elif any(kw in prompt_lower for kw in ['tube', 'pipe', '管', '管子', '管道', '圆管', '空心管', '空心圆柱']):
@@ -131,11 +311,11 @@ class CAD3DCLI:
             inner_radius = outer_radius - params.get('wall_thickness', 3)
             outer_cyl = Part.makeCylinder(outer_radius, height)
             inner_cyl = Part.makeCylinder(inner_radius, height)
-            shape = outer_cyl.cut(inner_cyl)
+            return outer_cyl.cut(inner_cyl)
         
         else:
             # Default to box
-            shape = Part.makeBox(width, depth, height)
+            return Part.makeBox(width, depth, height)
         
         if shape:
             obj = self.doc.addObject("Part::Feature", "Shape")
@@ -365,6 +545,10 @@ Examples:
     parser.add_argument('--rotate', type=float, help='Rotation angle in degrees')
     parser.add_argument('--translate', type=str, help='Translation as x,y,z')
     
+    # AI options
+    parser.add_argument('--ai', action='store_true', help='Use AI to parse complex prompts (requires API key)')
+    parser.add_argument('--api-key', type=str, help='API key for AI parsing (or set KIMI_API_KEY env var)')
+    
     # Other options
     parser.add_argument('--output-dir', type=str, help='Output directory')
     parser.add_argument('--info', action='store_true', help='Show model info')
@@ -373,7 +557,7 @@ Examples:
     args = parser.parse_args()
     
     # Initialize CLI
-    cli = CAD3DCLI(output_dir=args.output_dir)
+    cli = CAD3DCLI(output_dir=args.output_dir, api_key=args.api_key)
     
     try:
         # Handle input
@@ -381,6 +565,7 @@ Examples:
             print(f"Generating model from prompt: '{args.prompt}'")
             cli.generate_from_prompt(
                 args.prompt,
+                use_ai=args.ai,
                 width=args.width,
                 height=args.height,
                 depth=args.depth,
