@@ -4,26 +4,26 @@
 
 set -e
 
-# Find FreeCAD Python
+# Find FreeCAD Python - macOS specific
 FREECAD_PYTHON=""
 
-if command -v freecadcmd &> /dev/null; then
-    # Get FreeCAD installation directory
-    FREECAD_BIN=$(which freecadcmd)
-    FREECAD_DIR=$(dirname "$FREECAD_BIN")
-    
-    # Try common Python locations
-    if [ -f "$FREECAD_DIR/../lib/Python3/bin/python3" ]; then
-        FREECAD_PYTHON="$FREECAD_DIR/../lib/Python3/bin/python3"
-    elif [ -f "/Applications/FreeCAD.app/Contents/Resources/bin/python3" ]; then
-        FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/python3"
-    elif [ -f "/opt/homebrew/Cellar/freecad/*/libexec/bin/python3" ]; then
-        FREECAD_PYTHON=$(ls /opt/homebrew/Cellar/freecad/*/libexec/bin/python3 2>/dev/null | head -1)
+# Check for FreeCAD.app on macOS
+if [ -f "/Applications/FreeCAD.app/Contents/Resources/bin/python" ]; then
+    FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/python"
+elif [ -f "/Applications/FreeCAD.app/Contents/MacOS/FreeCAD" ]; then
+    # Use FreeCAD's bundled Python
+    FREECAD_DIR="/Applications/FreeCAD.app/Contents/Resources"
+    if [ -f "$FREECAD_DIR/bin/python3" ]; then
+        FREECAD_PYTHON="$FREECAD_DIR/bin/python3"
+    elif [ -f "$FREECAD_DIR/bin/python" ]; then
+        FREECAD_PYTHON="$FREECAD_DIR/bin/python"
     fi
 fi
 
-# Fallback to system Python
+# Fallback to system Python with warning
 if [ -z "$FREECAD_PYTHON" ]; then
+    echo "⚠️  Warning: FreeCAD Python not found. Using system Python."
+    echo "   Install FreeCAD for full functionality: brew install freecad"
     FREECAD_PYTHON=$(which python3)
 fi
 
@@ -31,9 +31,11 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$SCRIPT_DIR/src"
 
-# Set Python path for FreeCAD
-export PYTHONPATH="/Applications/FreeCAD.app/Contents/Resources/lib:$PYTHONPATH"
-export PYTHONPATH="/opt/homebrew/Cellar/freecad/0.21.2/libexec/lib/python3.11/site-packages:$PYTHONPATH"
+# Set Python path for FreeCAD on macOS
+if [ -d "/Applications/FreeCAD.app/Contents/Resources/lib" ]; then
+    export PYTHONPATH="/Applications/FreeCAD.app/Contents/Resources/lib:$PYTHONPATH"
+    export PYTHONPATH="/Applications/FreeCAD.app/Contents/Resources/lib/python3.11/site-packages:$PYTHONPATH"
+fi
 
 # Run the CLI
 exec "$FREECAD_PYTHON" "$SRC_DIR/cad_3d_cli.py" "$@"
