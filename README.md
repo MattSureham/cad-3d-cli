@@ -8,6 +8,21 @@ Transform text descriptions, images, or existing 3D files into printable models.
 
 ---
 
+## 📚 Table of Contents
+
+- [Quick Start](#-quick-start-5-minutes)
+- [Features](#-what-can-it-do)
+- [Usage Guide](#-usage-guide)
+  - [Text to 3D](#1-generate-from-text-easiest)
+  - [Dimension Extraction](#-smart-dimension-extraction-auto-detect)
+  - [File Conversion](#2-convert-file-formats)
+  - [Modify Models](#3-modify-existing-models)
+- [Command Reference](#-command-reference)
+- [Examples](#-real-world-examples)
+- [Troubleshooting](#-troubleshooting)
+
+---
+
 ## ✨ What Can It Do?
 
 | Feature | Description | Example |
@@ -17,6 +32,22 @@ Transform text descriptions, images, or existing 3D files into printable models.
 | **🖼️ Image to 3D** | Convert images to heightmaps | `photo.jpg` → 3D relief |
 | **🔄 Convert formats** | Switch between STL, STEP, DXF, FreeCAD | `model.stl` → `model.step` |
 | **🛠️ Modify models** | Scale, rotate, move existing models | Scale by 2x, rotate 45° |
+
+---
+
+## 🎯 Quick Reference Card
+
+```bash
+# Generate from text (auto-extracts dimensions!)
+./cad-3d-cli --prompt "50x30x20 box" --output box.stl
+./cad-3d-cli --prompt "直径80高100的圆柱" --output cyl.stl
+
+# Convert formats
+./cad-3d-cli --input model.step --output model.stl
+
+# Modify existing
+./cad-3d-cli --input model.stl --scale 2 --output bigger.stl
+```
 
 ---
 
@@ -276,15 +307,38 @@ Output shows:
 
 ## 💡 Real-World Examples
 
-### Example 1: Phone Stand
+### Example 1: Quick Box with Dimensions
 
 ```bash
-./cad-3d-cli --prompt "an L-shaped bracket" \
-  --width 70 --height 100 --depth 15 \
+# Just type the dimensions in any format!
+./cad-3d-cli --prompt "50x30x20 box" --output box.stl
+./cad-3d-cli --prompt "盒子 宽50深30高20" --output box.stl
+./cad-3d-cli --prompt "box width 50 depth 30 height 20" --output box.stl
+```
+
+### Example 2: Cylinder with Auto-extracted Dimensions
+
+```bash
+# All these work!
+./cad-3d-cli --prompt "直径80高100的圆柱" --output cylinder.stl
+./cad-3d-cli --prompt "cylinder 80x100" --output cylinder.stl
+./cad-3d-cli --prompt "a cylinder with diameter 80 and height 100" --output cylinder.stl
+```
+
+### Example 3: Phone Stand
+
+```bash
+./cad-3d-cli --prompt "an L-shaped bracket 70x100x15" \
   --output phone_stand.stl
 ```
 
-### Example 2: Resize for Different Printers
+### Example 4: Custom Container
+
+```bash
+./cad-3d-cli --prompt "空心管 直径60高80壁厚2" --output container.stl
+```
+
+### Example 5: Resize for Different Printers
 
 ```bash
 # Original model
@@ -297,7 +351,7 @@ Output shows:
 ./cad-3d-cli --input part.stl --scale 2 --output part_large.stl
 ```
 
-### Example 3: Batch Processing
+### Example 6: Batch Processing
 
 ```bash
 # Convert all STEP files to STL
@@ -306,19 +360,15 @@ for file in *.step; do
 done
 ```
 
-### Example 4: Create a Custom Container
-
-```bash
-./cad-3d-cli --prompt "a hollow tube" \
-  --diameter 60 --height 80 --wall-thickness 2 \
-  --output container.stl
-```
-
 ---
 
 ## 🔧 Troubleshooting
 
-### "FreeCAD not available"
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions to common problems.
+
+### Quick Fixes
+
+**"FreeCAD not available"**
 
 **Problem:** FreeCAD isn't installed or found.
 
