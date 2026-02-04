@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# CAD-3D-CLI Wrapper Script
+# Handles FreeCAD Python environment setup
+
+set -e
+
+# Find FreeCAD Python
+FREECAD_PYTHON=""
+
+if command -v freecadcmd &> /dev/null; then
+    # Get FreeCAD installation directory
+    FREECAD_BIN=$(which freecadcmd)
+    FREECAD_DIR=$(dirname "$FREECAD_BIN")
+    
+    # Try common Python locations
+    if [ -f "$FREECAD_DIR/../lib/Python3/bin/python3" ]; then
+        FREECAD_PYTHON="$FREECAD_DIR/../lib/Python3/bin/python3"
+    elif [ -f "/Applications/FreeCAD.app/Contents/Resources/bin/python3" ]; then
+        FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/python3"
+    elif [ -f "/opt/homebrew/Cellar/freecad/*/libexec/bin/python3" ]; then
+        FREECAD_PYTHON=$(ls /opt/homebrew/Cellar/freecad/*/libexec/bin/python3 2>/dev/null | head -1)
+    fi
+fi
+
+# Fallback to system Python
+if [ -z "$FREECAD_PYTHON" ]; then
+    FREECAD_PYTHON=$(which python3)
+fi
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC_DIR="$SCRIPT_DIR/src"
+
+# Set Python path for FreeCAD
+export PYTHONPATH="/Applications/FreeCAD.app/Contents/Resources/lib:$PYTHONPATH"
+export PYTHONPATH="/opt/homebrew/Cellar/freecad/0.21.2/libexec/lib/python3.11/site-packages:$PYTHONPATH"
+
+# Run the CLI
+exec "$FREECAD_PYTHON" "$SRC_DIR/cad_3d_cli.py" "$@"
