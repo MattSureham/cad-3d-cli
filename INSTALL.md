@@ -43,7 +43,7 @@ chmod +x cad-3d-cli
 ### Windows
 
 1. **Install FreeCAD**
-   - Download from https://www.freecadweb.org/downloads.php
+   - Download from https://www.freecad.org/downloads.php
    - Run installer
    - Note the installation path (e.g., `C:\Program Files\FreeCAD 1.0`)
 
