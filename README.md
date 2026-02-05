@@ -71,7 +71,7 @@ sudo apt-get install freecad
 ```
 
 **Windows:**
-Download from [freecadweb.org](https://www.freecadweb.org/downloads.php)
+Download from [freecad.org](https://www.freecad.org/downloads.php)
 
 ### Step 2: Download CAD-3D-CLI
 
