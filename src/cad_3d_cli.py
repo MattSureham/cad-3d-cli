@@ -50,7 +50,7 @@ import re
 class CAD3DCLI:
     """Main CLI class for 3D modeling operations"""
     
-    VERSION = "1.0.0"
+    VERSION = "1.1.0"
     SUPPORTED_INPUTS = ['.stl', '.step', '.stp', '.dxf', '.fcstd', '.fcstd1', '.obj', '.ply']
     SUPPORTED_OUTPUTS = ['.stl', '.step', '.stp', '.dxf', '.fcstd', '.png']
     

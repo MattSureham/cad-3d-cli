@@ -11,13 +11,16 @@ Transform text descriptions, images, or existing 3D files into printable models.
 ## 📚 Table of Contents
 
 - [Quick Start](#-quick-start-5-minutes)
+- [WebUI](#-webui-browser-interface)
 - [Features](#-what-can-it-do)
 - [Usage Guide](#-usage-guide)
   - [Text to 3D](#1-generate-from-text-easiest)
   - [Dimension Extraction](#-smart-dimension-extraction-auto-detect)
   - [File Conversion](#2-convert-file-formats)
   - [Modify Models](#3-modify-existing-models)
+- [Natural Language Examples](#-natural-language-examples)
 - [Command Reference](#-command-reference)
+- [API Reference](#-api-reference)
 - [Examples](#-real-world-examples)
 - [Troubleshooting](#-troubleshooting)
 
@@ -92,6 +95,74 @@ ls -lh mybox.stl
 ```
 
 ✅ **Success!** You now have `mybox.stl` ready for 3D printing.
+
+---
+
+## 🌐 WebUI (Browser Interface)
+
+NEW! CAD-3D-CLI now includes a web-based interface for even easier 3D model creation. No need to remember command syntax—just describe what you want in plain English!
+
+### Starting the WebUI
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the web server
+python webui.py
+
+# Open your browser to http://localhost:8000
+```
+
+### Features
+
+- 📝 **Natural Language Input** - Just type what you want (e.g., "a cube with side length 50mm")
+- 🌍 **Multi-language Support** - Works in English and Chinese
+- ⚡ **Real-time Parsing** - See how your description is interpreted before generating
+- 📥 **Direct Download** - Get your STL/STEP/DXF files immediately
+- 📋 **Example Library** - Quick-start templates for common shapes
+
+### Natural Language Examples
+
+| Description | Result |
+|-------------|--------|
+| `a cube with side length 50mm` | 50×50×50mm cube |
+| `a cylinder with diameter 80mm and height 100mm` | 80mm diameter, 100mm tall cylinder |
+| `create a box 100mm wide, 60mm high, and 40mm deep` | Custom rectangular box |
+| `a hollow tube with outer diameter 60mm` | Hollow cylinder (pipe) |
+| `一个直径80高100的圆柱` | Chinese: 80mm diameter, 100mm tall cylinder |
+| `50x30x20盒子` | Chinese: 50×30×20mm box |
+
+### Supported Dimension Formats
+
+The WebUI automatically extracts dimensions from various formats:
+
+- **Standard**: `50x30x20` or `50*30*20` or `50,30,20`
+- **Labeled**: `width 50 height 30 depth 20`
+- **English phrases**: `50mm wide`, `diameter 80mm`
+- **Chinese**: `宽50高30深20`, `直径80`
+- **Mixed**: `a box 100mm wide by 50mm tall`
+
+### API Endpoints
+
+The WebUI also provides a REST API for integration:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/parse` | POST | Parse natural language into parameters |
+| `/api/generate` | POST | Generate model from parameters |
+| `/api/examples` | GET | Get example descriptions |
+| `/download/{filename}` | GET | Download generated file |
+
+Example API usage:
+```bash
+curl -X POST http://localhost:8000/api/parse \
+  -d "description=a cube 50mm side"
+
+curl -X POST http://localhost:8000/api/generate \
+  -d "description=a cylinder 80x100mm" \
+  -d "shape=cylinder"
+```
 
 ---
 
@@ -251,6 +322,52 @@ Output shows:
 
 ---
 
+## 🗣️ Natural Language Examples
+
+The CLI and WebUI support natural language descriptions. Here are comprehensive examples:
+
+### English Examples
+
+| Natural Language | Parsed Result |
+|------------------|---------------|
+| `a cube with side length 50mm` | Shape: box, Width: 50, Height: 50, Depth: 50 |
+| `a cylinder with diameter 80mm and height 100mm` | Shape: cylinder, Diameter: 80, Height: 100 |
+| `create a box 100mm wide, 60mm high, and 40mm deep` | Shape: box, Width: 100, Height: 60, Depth: 40 |
+| `a hollow tube with outer diameter 60mm and height 80mm` | Shape: cylinder (hollow), Diameter: 60, Height: 80 |
+| `sphere with radius 25mm` | Shape: sphere, Diameter: 50 |
+| `a torus with major radius 30 and minor radius 10` | Shape: torus |
+| `box 50 by 30 by 20 millimeters` | Shape: box, Width: 50, Depth: 30, Height: 20 |
+| `can you make a cylinder 100x200mm` | Shape: cylinder, Diameter: 100, Height: 200 |
+
+### Chinese Examples (中文示例)
+
+| Natural Language | Parsed Result |
+|------------------|---------------|
+| `一个直径80高100的圆柱` | Shape: cylinder, Diameter: 80, Height: 100 |
+| `50x30x20盒子` | Shape: box, Width: 50, Depth: 30, Height: 20 |
+| `创建一个宽100高60深40的盒子` | Shape: box, Width: 100, Height: 60, Depth: 40 |
+| `空心管外径60高80` | Shape: cylinder (hollow), Diameter: 60, Height: 80 |
+| `球体直径50mm` | Shape: sphere, Diameter: 50 |
+| `圆锥底面直径30高50` | Shape: cone, Diameter: 30, Height: 50 |
+
+### Supported Dimension Formats
+
+The parser automatically recognizes these formats:
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Standard | `50x30x20` | Width × Depth × Height |
+| Star | `50*30*20` | Alternative separator |
+| Comma | `50,30,20` | CSV-style format |
+| Labeled EN | `width 50 height 30` | English labels |
+| Labeled CN | `宽50高30深20` | Chinese labels |
+| Diameter | `diameter 80 height 100` | For cylinders |
+| Diameter CN | `直径80高100` | Chinese cylinder format |
+| By-format | `50 by 30 by 20` | Natural language separator |
+| Mixed | `100mm wide, 50mm tall` | Mixed units and labels |
+
+---
+
 ## 📋 Command Reference
 
 ### Input Options (choose one)
@@ -302,6 +419,125 @@ Output shows:
 | `--output-dir ~/models` | Set default save location |
 | `--help` | Show all options |
 | `--version` | Show version |
+
+---
+
+## 🔌 API Reference
+
+### WebUI REST API
+
+When running the WebUI (`python webui.py`), the following REST API endpoints are available:
+
+#### POST /api/parse
+
+Parse a natural language description into structured parameters.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/api/parse \
+  -d "description=a cube with side length 50mm"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "parsed": {
+    "shape": "box",
+    "width": 50,
+    "height": 50,
+    "depth": 50,
+    "diameter": null,
+    "wall_thickness": null
+  }
+}
+```
+
+#### POST /api/generate
+
+Generate a 3D model from parameters.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/api/generate \
+  -d "description=a cylinder 80x100mm" \
+  -d "shape=cylinder" \
+  -d "diameter=80" \
+  -d "height=100" \
+  -d "output_format=stl"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "filename": "model_20240205_143022.stl",
+  "path": "/Users/matthew/clawd/cad-output/model_20240205_143022.stl",
+  "params": { ... },
+  "download_url": "/download/model_20240205_143022.stl"
+}
+```
+
+#### GET /api/examples
+
+Get example natural language descriptions.
+
+**Request:**
+```bash
+curl http://localhost:8000/api/examples
+```
+
+**Response:**
+```json
+{
+  "examples": [
+    {
+      "description": "a cube with side length 50mm",
+      "expected_shape": "box",
+      "expected_dims": {"width": 50, "height": 50, "depth": 50}
+    }
+  ]
+}
+```
+
+#### GET /download/{filename}
+
+Download a generated model file.
+
+**Request:**
+```bash
+curl http://localhost:8000/download/model_20240205_143022.stl \
+  --output model.stl
+```
+
+### Python API
+
+Use the CAD3DCLI class directly in your Python code:
+
+```python
+from src.cad_3d_cli import CAD3DCLI
+
+# Create instance
+cli = CAD3DCLI(output_dir='~/my_models')
+
+# Generate from prompt with natural language
+cli.generate_from_prompt("a box 50x30x20mm")
+cli.export('box.stl')
+
+# Or use explicit parameters
+cli.generate_from_prompt(
+    "custom shape",
+    shape='cylinder',
+    diameter=80,
+    height=100
+)
+cli.export('cylinder.stl')
+
+# Load and modify existing
+cli.load_file('existing.stl')
+cli.apply_modifications({'scale': 1.5, 'rotate': 45})
+cli.export('modified.stl')
+```
 
 ---
 
@@ -416,14 +652,18 @@ chmod +x cad-3d-cli
 
 ```
 cad-3d-cli/
-├── cad-3d-cli              # Main script (run this)
+├── cad-3d-cli              # Main CLI script (run this)
+├── webui.py               # WebUI server (NEW!)
 ├── src/
 │   └── cad_3d_cli.py      # Core Python code
-├── tests/                  # Test files
-├── requirements.txt        # Python dependencies
-├── setup.py               # Installation config
-├── README.md              # This file
-└── LICENSE                # MIT License
+├── templates/             # WebUI HTML templates
+│   └── index.html         # Main web interface
+├── static/                # WebUI static assets
+├── tests/                 # Test files
+├── requirements.txt       # Python dependencies
+├── setup.py              # Installation config
+├── README.md             # This file
+└── LICENSE               # MIT License
 ```
 
 ---
